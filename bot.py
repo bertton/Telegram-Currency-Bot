@@ -6,25 +6,34 @@ import aiohttp
 import telethon
 
 from bs4 import BeautifulSoup
+from providers import fixer, google
 
 logging.basicConfig(level=logging.INFO)
 
 START_TEXT = """
+I'm an inline currency converter bot to help you easily convert any currency to another. 
+I support over 100 currencies and advanced queries with the help of Google's search AI.
 
-I'm a inline bot to help you convert any currencies. I support over 1000 currencies both real world and crypto.
+**How to use me:**
 
+Type my username following by the currency you want to convert from following the target currency.
 
-Just send me an inline query with the text: __20 euro in usd__ or __how much is 20 euro in usd__ and I'll give you the answer. 
+Eg: `@currconverter_bot 20 EUR in USD`
 
-If I'm not returning any results just check your query again or try again later.
+Or if you don't remember what currency does a country uses you can use countries names instead of the currency name:
 
+Eg: `@currconverter_bot 20 European Money in Nigeria`
 
 **Donate:**
 
+If you like my bot you can help me with a small donation at:
 
- If you like my work you can donate to me using [PayPal](https://www.paypal.me/marcelalexandrunitan).
- For support contact @nitanmarcel!
- 
+· [PayPal](https://www.paypal.com/paypalme/marcelalexandrunitan)
+· [Revolut](http://pay.revolut.com/profile/marceli6p)
+
+**Source Code:** 
+· [GitHub](https://github.com/nitanmarcel/Telegram-Currency-Bot)
+
 """
 
 headers = {
@@ -37,7 +46,7 @@ headers = {
     'Upgrade-Insecure-Requests': '1'
 }
 
-API_ID: int = 0
+API_ID: str = 0
 API_HASH: str = ''
 TOKEN: str = ''
 
@@ -56,64 +65,34 @@ bot.start(bot_token=TOKEN)
 URL = "https://google.com/search?q="
 
 
-def time_until_end_of_day(dt=None):
-    if dt is None:
-        dt = datetime.datetime.now()
-    tomorrow = dt + datetime.timedelta(days=1)
-    return datetime.datetime.combine(tomorrow, datetime.time.min) - dt
-
-
-async def fetch(session, url):
-    async with session.get(url, headers=headers) as response:
-        return await response.text(), response.status
-
-
 @bot.on(telethon.events.InlineQuery)
 async def convert(event):
-    inline_builder = event.builder
-    inline_text = event.text
-    inline_results = []
+    builder = event.builder
+    text = event.text
 
-    html = None
-    status_code = None
+    if not text:
+        return await event.answer([], switch_pm='How to use me!', switch_pm_param='_')
 
-    if inline_text:
-        query = inline_text.replace(' ', '+')
-        async with aiohttp.ClientSession() as session:
-            html, status_code = await fetch(session, URL + query)
-            if status_code == 200:
-                soup = BeautifulSoup(html, "html.parser")
-                res = soup.find_all('div', class_='b1hJbf')
-                date_res = soup.find('div', class_='hqAUc')
-                date = BeautifulSoup(str(date_res), "html.parser")
-                update_date = date.get_text().replace('· Disclaimer', '')
+    api = await fixer.convert(text)
+    if not api:
+        api = await google.convert(text)
 
-                if res:
-                    soup = BeautifulSoup(str(res[0]), "html.parser")
-                    soup_text = soup.get_text().replace('equals', ' => ')
-
-                    inline_results.append(
-                        await inline_builder.article(title=soup_text, description=soup_text,
-                                                     text=soup_text + '**\nLast updated · ' + update_date + '**')
-                    )
-                else:
-                    inline_results.append(await inline_builder.article(title='Invalid Query!', description='Try Again!',
-                                                                       text='Invalid Query! Try again!'))
-            else:
-                inline_results.append(
-                    await inline_builder.article(title='ERROR: ' + str(status_code),
-                                                 description='ERROR: ' + str(status_code),
-                                                 text='ERROR' + str(status_code)))
+    if api:
+        result, date = api
+        await event.answer(
+            [await builder.article(title=result, text=f"{result} **\nLast updated ·** `{date.strftime('%Y-%m-%d %H:%M')}`")]
+            ,
+            cache_time=30 * 60)
     else:
-        inline_results.append(await inline_builder.article(title='Invalid Query!', description='Try Again!',
-                                                           text='Invalid Query! Try again!'))
-    await event.answer(inline_results, switch_pm='How to use me!', switch_pm_param='_',
-                       cache_time=time_until_end_of_day().seconds)
+        await event.answer([await builder.article(title="Invalid Query!", description="Click to learn more!",
+                                                  text="An invalid query was given. Make sure you entered your query "
+                                                       "in the following format: `{amount} {from currency} {to "
+                                                       "currency}`.")])
 
 
 @bot.on(telethon.events.NewMessage)
 async def start(event):
-    await event.reply(START_TEXT)
+    await event.reply(START_TEXT, link_preview=False)
 
 
 if __name__ == "__main__":

@@ -12,7 +12,7 @@
 ### Buy me a beer:
 
  - PayPal: https://www.paypal.me/marcelalexandrunitan?locale.x=en_US
- - Revolut: Hit me on telegram with a payment link: https://t.me/nitanmarcel
+ - Revolut: http://pay.revolut.com/profile/marceli6p
  
  
  
