@@ -2,7 +2,9 @@ import aiohttp
 
 from bs4 import BeautifulSoup
 
-import utils
+from utils.price_parser import parse_currency, format_currency
+from utils.currencies import  _currencies
+from utils.date_parser import format_datetime
 
 URL = "https://google.com/search?q="
 
@@ -30,4 +32,5 @@ async def convert(query):
                     update_date = date.get_text().split("·")[0]
                     soup = BeautifulSoup(str(res[0]), "html.parser")
                     soup_text = soup.get_text().replace('equals', ' => ')
-                    return soup_text, utils.datetime_from_str(update_date)
+                    return soup_text, format_datetime(update_date)
+
